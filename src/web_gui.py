@@ -1,17 +1,17 @@
 """Веб-интерфейс эмулятора оболочки UNIX (GUI в браузере).
 
 Работает без сторонних зависимостей на стандартной библиотеке Python.
-Автоматически открывает вкладку в браузере с графическим терминалом.
 """
 
 import getpass
 import json
 import os
+import platform
 import socket
+import subprocess
 import threading
 import webbrowser
 from http.server import HTTPServer, BaseHTTPRequestHandler
-from urllib.parse import parse_qs, urlparse
 
 from src.emulator import ShellEmulator
 from src.vfs import VFS
@@ -24,12 +24,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>{title}</title>
 <style>
-  * {{
+  * {
     box-sizing: border-box;
     margin: 0;
     padding: 0;
-  }}
-  body {{
+  }
+  body {
     background: #121214;
     color: #e0e0e0;
     font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
@@ -38,8 +38,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     align-items: center;
     min-height: 100vh;
     padding: 16px;
-  }}
-  .window {{
+  }
+  .window {
     width: 100%;
     max-width: 960px;
     height: 620px;
@@ -49,8 +49,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     display: flex;
     flex-direction: column;
     overflow: hidden;
-  }}
-  .titlebar {{
+  }
+  .titlebar {
     background: #252526;
     height: 38px;
     display: flex;
@@ -58,22 +58,22 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     padding: 0 14px;
     border-bottom: 1px solid #333333;
     user-select: none;
-  }}
-  .buttons {{
+  }
+  .buttons {
     display: flex;
     gap: 8px;
     margin-right: 14px;
-  }}
-  .btn {{
+  }
+  .btn {
     width: 12px;
     height: 12px;
     border-radius: 50%;
     display: inline-block;
-  }}
-  .btn-close {{ background: #ff5f56; }}
-  .btn-min {{ background: #ffbd2e; }}
-  .btn-max {{ background: #27c93f; }}
-  .title {{
+  }
+  .btn-close { background: #ff5f56; }
+  .btn-min { background: #ffbd2e; }
+  .btn-max { background: #27c93f; }
+  .title {
     font-size: 13px;
     font-weight: 500;
     color: #cccccc;
@@ -84,8 +84,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     flex-grow: 1;
     text-align: center;
     margin-right: 48px;
-  }}
-  .terminal-body {{
+  }
+  .terminal-body {
     flex: 1;
     background: #1e1e1e;
     padding: 14px 18px;
@@ -96,40 +96,27 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     color: #00ff66;
     display: flex;
     flex-direction: column;
-  }}
-  .output-area {{
+  }
+  .output-area {
     white-space: pre-wrap;
     word-break: break-word;
-  }}
-  .line-prompt {{
-    color: #4ec9b0;
-    font-weight: bold;
-  }}
-  .line-cmd {{
-    color: #dcdcdc;
-  }}
-  .line-output {{
-    color: #00ff66;
-  }}
-  .line-error {{
-    color: #ff6b6b;
-  }}
-  .line-motd {{
-    color: #569cd6;
-    margin-bottom: 8px;
-  }}
-  .input-row {{
+  }
+  .line-cmd { color: #dcdcdc; }
+  .line-output { color: #00ff66; }
+  .line-error { color: #ff6b6b; }
+  .line-motd { color: #569cd6; margin-bottom: 8px; font-weight: bold; }
+  .input-row {
     display: flex;
     align-items: center;
     margin-top: 4px;
-  }}
-  .prompt-text {{
+  }
+  .prompt-text {
     color: #4ec9b0;
     font-weight: bold;
     margin-right: 8px;
     white-space: nowrap;
-  }}
-  #commandInput {{
+  }
+  #commandInput {
     flex: 1;
     background: transparent;
     border: none;
@@ -138,8 +125,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     font-family: inherit;
     font-size: inherit;
     caret-color: #00ff66;
-  }}
-  .status-badge {{
+  }
+  .status-badge {
     margin-top: 8px;
     padding: 4px 8px;
     border-radius: 4px;
@@ -147,7 +134,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     background: #333;
     color: #aaa;
     display: inline-block;
-  }}
+  }
 </style>
 </head>
 <body>
@@ -192,7 +179,6 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     scrollToBottom();
   }
 
-  // Загружаем начальный вывод (motd, скрипты)
   const initial = {initial_json};
   initial.forEach(item => {
     appendText(item.text, item.cls);
@@ -263,7 +249,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 class ShellWebGUI:
     """Веб-интерфейс эмулятора (GUI в браузере)."""
 
-    def __init__(self, vfs_path=None, script_path=None, host="127.0.0.1", port=0):
+    def __init__(self, vfs_path=None, script_path=None, host="127.0.0.1", port=8080):
         self.vfs = VFS()
         self.vfs_path = vfs_path
         self.script_path = script_path
@@ -318,7 +304,6 @@ class ShellWebGUI:
 
         class RequestHandler(BaseHTTPRequestHandler):
             def log_message(self, format, *args):
-                # Подавляем логирование HTTP в консоль
                 return
 
             def do_GET(self):
@@ -364,9 +349,8 @@ class ShellWebGUI:
                     self.send_response(404)
                     self.end_headers()
 
-        # Ищем свободный порт
         server = None
-        for p in [8080, 8081, 8088, 5000, 0]:
+        for p in [8080, 8081, 8088, 5000, 3000, 0]:
             try:
                 server = HTTPServer((self.host, p), RequestHandler)
                 self.port = server.server_port
@@ -378,15 +362,25 @@ class ShellWebGUI:
             server = HTTPServer((self.host, 0), RequestHandler)
             self.port = server.server_port
 
-        url = f"http://{self.host}:{self.port}"
+        url = f"http://localhost:{self.port}"
         print(f"\n========================================================")
-        print(f"  [Web GUI] Графический интерфейс запущен: {url}")
-        print(f"  [Web GUI] Открываем окно в браузере...")
-        print(f"  Для завершения нажмите Ctrl+C в этом терминале.")
-        print(f"========================================================\n")
+        print(f"  [Web GUI] Сервер эмулятора успешно запущен!")
+        print(f"  👉 Откройте эту ссылку в браузере (Safari / Chrome):")
+        print(f"     {url}")
+        print(f"  (или удерживая Cmd, нажмите на ссылку выше)")
+        print(f"  Для остановки сервера нажмите Ctrl+C в этом терминале.")
+        print(f"========================================================\n", flush=True)
 
-        # Открываем браузер в отдельном потоке
-        threading.Timer(0.3, lambda: webbrowser.open(url)).start()
+        def try_open():
+            try:
+                if platform.system() == "Darwin":
+                    subprocess.Popen(["open", url], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                else:
+                    webbrowser.open(url)
+            except Exception:
+                pass
+
+        threading.Timer(0.2, try_open).start()
 
         try:
             server.serve_forever()
