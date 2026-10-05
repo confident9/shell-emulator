@@ -1,4 +1,4 @@
-"""Ядро эмулятора оболочки — обработка команд."""
+"""Ядро эмулятора оболочки — обработка команд и выполнение скриптов."""
 
 from src.parser import parse_command
 from src.commands import COMMANDS
@@ -46,15 +46,13 @@ class ShellEmulator:
             Строка приглашения с текущей директорией.
         """
         cwd_display = self.vfs.cwd
-        if cwd_display == "/":
-            cwd_display = "/"
         return f"{cwd_display}$ "
 
     def run_script(self, script_path, output_callback=None):
         """Выполняет стартовый скрипт.
 
-        Останавливается при первой ошибке.
         Поддерживает комментарии (строки, начинающиеся с #).
+        Отображает как ввод, так и вывод, имитируя диалог с пользователем.
 
         Args:
             script_path: Путь к файлу скрипта.
@@ -65,7 +63,7 @@ class ShellEmulator:
         """
         with open(script_path, "r", encoding="utf-8") as f:
             lines = f.readlines()
-        for line_num, line in enumerate(lines, 1):
+        for line in lines:
             stripped = line.strip()
             if not stripped or stripped.startswith("#"):
                 continue
@@ -79,32 +77,3 @@ class ShellEmulator:
                     output_callback(result)
             if not self.running:
                 break
-            if self._is_error(result):
-                msg = (
-                    f"Ошибка в скрипте, "
-                    f"строка {line_num}: {stripped}"
-                )
-                if output_callback:
-                    output_callback(msg)
-                break
-
-    def _is_error(self, result):
-        """Проверяет, является ли результат ошибкой.
-
-        Args:
-            result: Строка результата команды.
-
-        Returns:
-            True если результат содержит ошибку.
-        """
-        error_markers = [
-            "команда не найдена",
-            "Нет такого файла",
-            "Не является каталогом",
-            "недостаточно аргументов",
-            "отсутствует операнд",
-            "неверные аргументы",
-            "ошибка",
-            "Ошибка",
-        ]
-        return any(m in result for m in error_markers)

@@ -1,42 +1,36 @@
 # Стартовый скрипт для Этапа 4 (Основные команды)
-# Тестирование ls, cd, date, cal
+# Тестирование команд ls, cd, date, cal и обработки ошибок
 
-# Тест ls в корне
+# 1. Тестирование команды ls
 ls
-
-# Тест ls с аргументом
 ls home
-
-# Тест ls вложенная директория
 ls home/user/documents
+ls home/user/documents/report.txt
 
-# Тест cd
+# 2. Тестирование команды cd
 cd home/user
 ls
-
-# Тест cd ..
+cd documents
+ls
 cd ..
 ls
-
-# Тест cd /
+cd /etc
+ls
 cd /
+ls
 
-# Тест date
+# 3. Тестирование команды date
 date
 
-# Тест cal без аргументов
+# 4. Тестирование команды cal
 cal
-
-# Тест cal с годом
 cal 2026
-
-# Тест cal с месяцем и годом
 cal 10 2026
 
-# Тест ошибки: ls несуществующей директории
-ls /nonexistent
-
-# Тест ошибки: cd в файл
+# 5. Примеры обработки ошибок
+ls /not_found_directory
 cd /etc/hosts
+cal invalid_year
+cal 15 2026
 
 exit

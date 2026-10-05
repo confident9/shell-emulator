@@ -1,11 +1,11 @@
-"""Реализация команд эмулятора оболочки."""
+"""Реализация команд эмулятора оболочки UNIX."""
 
 import calendar
 import datetime
 
 
 def cmd_ls(vfs, args):
-    """Команда ls — вывод содержимого директории.
+    """Команда ls — вывод содержимого директории или имени файла.
 
     Args:
         vfs: Экземпляр VFS.
@@ -15,14 +15,13 @@ def cmd_ls(vfs, args):
         Строка с результатом выполнения.
     """
     target = args[0] if args else "."
-    try:
-        entries = vfs.list_dir(
-            vfs.resolve_path(target)
-        )
-    except (FileNotFoundError, NotADirectoryError) as e:
-        return f"ls: {e}"
-    if not entries:
-        return ""
+    abs_path = vfs.resolve_path(target)
+    node = vfs.get_node(abs_path)
+    if node is None:
+        return f"ls: Нет такого файла или каталога: {target}"
+    if not node.is_dir:
+        return node.name
+    entries = sorted(node.children.keys())
     return "\n".join(entries)
 
 
@@ -34,16 +33,19 @@ def cmd_cd(vfs, args):
         args: Аргументы команды.
 
     Returns:
-        Строка с результатом или пустая строка.
+        Строка с сообщением об ошибке или пустая строка при успехе.
     """
-    if not args:
+    if not args or args[0] == "~":
         vfs.cwd = "/"
         return ""
     target = args[0]
-    try:
-        vfs.change_dir(target)
-    except (FileNotFoundError, NotADirectoryError) as e:
-        return f"cd: {e}"
+    abs_path = vfs.resolve_path(target)
+    node = vfs.get_node(abs_path)
+    if node is None:
+        return f"cd: Нет такого файла или каталога: {target}"
+    if not node.is_dir:
+        return f"cd: Не является каталогом: {target}"
+    vfs.cwd = abs_path
     return ""
 
 
@@ -61,7 +63,7 @@ def cmd_exit(vfs, args):
 
 
 def cmd_date(vfs, args):
-    """Команда date — вывод текущей даты и времени.
+    """Команда date — вывод текущей даты и времени UNIX.
 
     Args:
         vfs: Экземпляр VFS.
@@ -93,68 +95,59 @@ def cmd_cal(vfs, args):
 
 
 def _cal_with_month_year(args):
-    """Выводит календарь для указанного месяца и года.
-
-    Args:
-        args: Список из двух аргументов [месяц, год].
-
-    Returns:
-        Строка с календарём или сообщение об ошибке.
-    """
+    """Выводит календарь для указанного месяца и года."""
     try:
         month = int(args[0])
         year = int(args[1])
+        if month < 1 or month > 12:
+            return "cal: неверный номер месяца (должен быть 1-12)"
         return calendar.month(year, month).rstrip()
     except (ValueError, calendar.IllegalMonthError):
         return "cal: неверные аргументы"
 
 
 def _cal_with_year(arg):
-    """Выводит календарь для указанного года.
-
-    Args:
-        arg: Строка с номером года.
-
-    Returns:
-        Строка с календарём или сообщение об ошибке.
-    """
+    """Выводит календарь для указанного года."""
     try:
         year = int(arg)
+        if year < 1 or year > 9999:
+            return "cal: неверный год (должен быть 1-9999)"
         return calendar.calendar(year).rstrip()
     except ValueError:
         return "cal: неверный год"
 
 
 def cmd_chmod(vfs, args):
-    """Команда chmod — изменение прав доступа.
+    """Команда chmod — изменение прав доступа в памяти.
 
     Args:
         vfs: Экземпляр VFS.
         args: Аргументы [права, путь].
 
     Returns:
-        Строка с результатом.
+        Строка с ошибкой или пустая строка при успехе.
     """
     if len(args) < 2:
         return "chmod: недостаточно аргументов"
     permissions = args[0]
     path = args[1]
-    try:
-        vfs.chmod(path, permissions)
-    except FileNotFoundError as e:
-        return f"chmod: {e}"
+    abs_path = vfs.resolve_path(path)
+    node = vfs.get_node(abs_path)
+    if node is None:
+        return f"chmod: Нет такого файла или каталога: {path}"
+    node.permissions = permissions
     return ""
 
 
 def cmd_touch(vfs, args):
-    """Команда touch — создание файла или обновление.
+    """Команда touch — создание файла или обновление времени в памяти.
 
     Args:
         vfs: Экземпляр VFS.
         args: Аргументы [путь].
 
     Returns:
-        Строка с результатом.
+        Строка с ошибкой или пустая строка при успехе.
     """
     if not args:
         return "touch: отсутствует операнд"
@@ -167,7 +160,7 @@ def cmd_touch(vfs, args):
 
 
 def cmd_vfs_save(vfs, args):
-    """Команда vfs-save — сохранение VFS на диск.
+    """Команда vfs-save — сохранение VFS на диск в исходном формате.
 
     Args:
         vfs: Экземпляр VFS.
