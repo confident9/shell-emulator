@@ -1,0 +1,90 @@
+{
+  "name": "/",
+  "is_dir": true,
+  "permissions": "rwxr-xr-x",
+  "children": [
+    {
+      "name": "motd",
+      "is_dir": false,
+      "permissions": "rw-r--r--",
+      "content": "0JTQvtCx0YDQviDQv9C+0LbQsNC70L7QstCw0YLRjCDQsiDRjdC80YPQu9GP0YLQvtGAIQ=="
+    },
+    {
+      "name": "bin",
+      "is_dir": true,
+      "permissions": "rwxr-xr-x",
+      "children": [
+        {
+          "name": "run.sh",
+          "is_dir": false,
+          "permissions": "rwxr-xr-x",
+          "content": "IyEvYmluL2Jhc2gKZWNobyAiSGVsbG8i"
+        }
+      ]
+    },
+    {
+      "name": "home",
+      "is_dir": true,
+      "permissions": "rwxr-xr-x",
+      "children": [
+        {
+          "name": "user",
+          "is_dir": true,
+          "permissions": "rwx------",
+          "children": [
+            {
+              "name": "documents",
+              "is_dir": true,
+              "permissions": "rwxr-xr-x",
+              "children": [
+                {
+                  "name": "report.txt",
+                  "is_dir": false,
+                  "permissions": "rw-r--r--",
+                  "content": "UmVwb3J0IGNvbnRlbnQgaGVyZS4="
+                },
+                {
+                  "name": "data.csv",
+                  "is_dir": false,
+                  "permissions": "rw-r--r--",
+                  "content": "bmFtZSxhZ2UKQWxpY2UsMzAKQm9iLDI1"
+                }
+              ]
+            },
+            {
+              "name": "config.txt",
+              "is_dir": false,
+              "permissions": "rw-------",
+              "content": "dXNlcl9jb25maWc9dHJ1ZQ=="
+            }
+          ]
+        }
+      ]
+    },
+    {
+      "name": "etc",
+      "is_dir": true,
+      "permissions": "rwxr-xr-x",
+      "children": [
+        {
+          "name": "hosts",
+          "is_dir": false,
+          "permissions": "rw-r--r--",
+          "content": "MTI3LjAuMC4xIGxvY2FsaG9zdA=="
+        },
+        {
+          "name": "passwd",
+          "is_dir": false,
+          "permissions": "rw-r--r--",
+          "content": "cm9vdDp4OjA6MDpyb290Oi9yb290Oi9iaW4vYmFzaA=="
+        }
+      ]
+    },
+    {
+      "name": "tmp",
+      "is_dir": true,
+      "permissions": "rwxrwxrwx",
+      "children": []
+    }
+  ]
+}

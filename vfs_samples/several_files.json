@@ -1,0 +1,44 @@
+{
+  "name": "/",
+  "is_dir": true,
+  "permissions": "rwxr-xr-x",
+  "children": [
+    {
+      "name": "motd",
+      "is_dir": false,
+      "permissions": "rw-r--r--",
+      "content": "0JTQvtCx0YDQviDQv9C+0LbQsNC70L7QstCw0YLRjCDQsiDRjdC80YPQu9GP0YLQvtGAIQ=="
+    },
+    {
+      "name": "readme.txt",
+      "is_dir": false,
+      "permissions": "rw-r--r--",
+      "content": "VGhpcyBpcyBhIHJlYWRtZSBmaWxlLg=="
+    },
+    {
+      "name": "notes.txt",
+      "is_dir": false,
+      "permissions": "rw-r--r--",
+      "content": "U29tZSBub3RlcyBoZXJlLg=="
+    },
+    {
+      "name": "docs",
+      "is_dir": true,
+      "permissions": "rwxr-xr-x",
+      "children": [
+        {
+          "name": "guide.txt",
+          "is_dir": false,
+          "permissions": "rw-r--r--",
+          "content": "VXNlciBndWlkZSBjb250ZW50Lg=="
+        },
+        {
+          "name": "faq.txt",
+          "is_dir": false,
+          "permissions": "rw-r--r--",
+          "content": "RkFRIGNvbnRlbnQu"
+        }
+      ]
+    }
+  ]
+}
