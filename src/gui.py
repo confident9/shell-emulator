@@ -60,7 +60,6 @@ class ShellGUI:
         self.root.minsize(600, 400)
         self.root.configure(bg="#1e1e1e")
 
-        # Принудительный вывод окна на передний план в macOS
         try:
             self.root.lift()
             self.root.attributes("-topmost", True)
@@ -71,8 +70,8 @@ class ShellGUI:
 
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
-    def _setup_widgets(self):
-        """Создаёт виджеты интерфейса."""
+    def _setup_output_widget(self):
+        """Создаёт текстовую область вывода терминала."""
         self.output = scrolledtext.ScrolledText(
             self.root,
             bg="#1e1e1e",
@@ -86,8 +85,12 @@ class ShellGUI:
             fill=tk.BOTH, expand=True,
             padx=8, pady=(8, 0)
         )
-        self.output.bind("<Button-1>", lambda e: self.input_entry.focus_set())
+        self.output.bind(
+            "<Button-1>", lambda e: self.input_entry.focus_set()
+        )
 
+    def _setup_input_widgets(self):
+        """Создаёт панель ввода команд с промптом."""
         input_frame = tk.Frame(self.root, bg="#1e1e1e")
         input_frame.pack(fill=tk.X, padx=8, pady=8)
 
@@ -114,6 +117,11 @@ class ShellGUI:
         self.input_entry.bind("<Up>", self._on_history_up)
         self.input_entry.bind("<Down>", self._on_history_down)
         self.input_entry.focus_set()
+
+    def _setup_widgets(self):
+        """Создаёт виджеты интерфейса."""
+        self._setup_output_widget()
+        self._setup_input_widgets()
 
     def _show_motd(self):
         """Отображает сообщение motd при старте."""

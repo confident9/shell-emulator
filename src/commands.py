@@ -3,6 +3,14 @@
 import calendar
 import datetime
 
+CAL_MONTH_YEAR_ARGS = 2
+CAL_YEAR_ARGS = 1
+MIN_MONTH = 1
+MAX_MONTH = 12
+MIN_YEAR = 1
+MAX_YEAR = 9999
+CHMOD_MIN_ARGS = 2
+
 
 def cmd_ls(vfs, args):
     """Команда ls — вывод содержимого директории или имени файла.
@@ -87,9 +95,9 @@ def cmd_cal(vfs, args):
         Строка с календарём.
     """
     now = datetime.datetime.now()
-    if len(args) >= 2:
+    if len(args) >= CAL_MONTH_YEAR_ARGS:
         return _cal_with_month_year(args)
-    if len(args) == 1:
+    if len(args) == CAL_YEAR_ARGS:
         return _cal_with_year(args[0])
     return calendar.month(now.year, now.month).rstrip()
 
@@ -99,7 +107,7 @@ def _cal_with_month_year(args):
     try:
         month = int(args[0])
         year = int(args[1])
-        if month < 1 or month > 12:
+        if month < MIN_MONTH or month > MAX_MONTH:
             return "cal: неверный номер месяца (должен быть 1-12)"
         return calendar.month(year, month).rstrip()
     except (ValueError, calendar.IllegalMonthError):
@@ -110,7 +118,7 @@ def _cal_with_year(arg):
     """Выводит календарь для указанного года."""
     try:
         year = int(arg)
-        if year < 1 or year > 9999:
+        if year < MIN_YEAR or year > MAX_YEAR:
             return "cal: неверный год (должен быть 1-9999)"
         return calendar.calendar(year).rstrip()
     except ValueError:
@@ -127,7 +135,7 @@ def cmd_chmod(vfs, args):
     Returns:
         Строка с ошибкой или пустая строка при успехе.
     """
-    if len(args) < 2:
+    if len(args) < CHMOD_MIN_ARGS:
         return "chmod: недостаточно аргументов"
     permissions = args[0]
     path = args[1]

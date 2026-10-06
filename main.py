@@ -1,19 +1,18 @@
-#!/usr/bin/env python3
 """Точка входа эмулятора командной оболочки UNIX (Вариант №30).
 
 Режимы запуска:
-    python3 main.py                             # Графический интерфейс (GUI)
-    python3 main.py --web                       # Web-GUI в браузере
-    python3 main.py --cli                       # Консольный терминал
-    python3 main.py --vfs vfs_samples/full.json # С виртуальной файловой системой
-    python3 main.py --vfs ... --script ...      # С VFS и стартовым скриптом
+    python3 main.py                             (Графический интерфейс GUI)
+    python3 main.py --web                       (Web-GUI в браузере)
+    python3 main.py --cli                       (Консольный терминал)
+    python3 main.py --vfs vfs_samples/full.json (С виртуальной ФС)
+    python3 main.py --vfs ... --script ...      (С VFS и стартовым скриптом)
 """
 
-import os
-os.environ["TK_SILENCE_DEPRECATION"] = "1"
-
 import argparse
+import os
 import sys
+
+os.environ["TK_SILENCE_DEPRECATION"] = "1"
 
 
 def parse_args():
@@ -35,7 +34,7 @@ def parse_args():
         "--mode", "-m",
         choices=["gui", "web", "cli"],
         default="gui",
-        help="Режим интерфейса: gui (десктоп Tkinter), web (в браузере), cli (терминал)",
+        help="Режим: gui (десктоп Tkinter), web (в браузере), cli",
     )
     parser.add_argument(
         "--web",
@@ -50,23 +49,57 @@ def parse_args():
     return parser.parse_args()
 
 
-def main():
-    """Главная функция запуска эмулятора."""
-    args = parse_args()
-
-    # Определение режима работы
-    mode = args.mode
+def _determine_mode(args):
+    """Определяет режим работы эмулятора по аргументам CLI."""
     if args.web:
-        mode = "web"
-    elif args.cli:
-        mode = "cli"
+        return "web"
+    if args.cli:
+        return "cli"
+    return args.mode
 
-    # Отладочный вывод параметров запуска (Требование Этапа 2)
+
+def _print_launch_params(args, mode):
+    """Выводит отладочные параметры запуска эмулятора."""
     print("=== Отладочный вывод параметров запуска ===")
     print(f"  VFS (физический путь): {args.vfs or 'не указан'}")
     print(f"  Стартовый скрипт:     {args.script or 'не указан'}")
     print(f"  Режим интерфейса:     {mode}")
     print("===========================================")
+
+
+def _run_gui_with_fallback(args):
+    """Запускает GUI Tkinter с резервным переключением на Web GUI и CLI."""
+    try:
+        from src.gui import ShellGUI
+        gui = ShellGUI(vfs_path=args.vfs, script_path=args.script)
+        gui.run()
+    except Exception as err:
+        print(
+            f"\n[Предупреждение] Ошибка десктопного Tkinter GUI: {err}"
+        )
+        print("[Инфо] Запуск графического Web GUI в браузере...\n")
+        try:
+            from src.web_gui import ShellWebGUI
+            web_gui = ShellWebGUI(
+                vfs_path=args.vfs, script_path=args.script
+            )
+            web_gui.run()
+        except Exception as web_err:
+            print(
+                f"[Ошибка] Не удалось запустить Web GUI: {web_err}",
+                file=sys.stderr,
+            )
+            print("[Инфо] Переключение в консольный режим CLI...\n")
+            from src.cli import ShellCLI
+            cli = ShellCLI(vfs_path=args.vfs, script_path=args.script)
+            cli.run()
+
+
+def main():
+    """Главная функция запуска эмулятора."""
+    args = parse_args()
+    mode = _determine_mode(args)
+    _print_launch_params(args, mode)
 
     if mode == "cli":
         from src.cli import ShellCLI
@@ -80,24 +113,7 @@ def main():
         web_gui.run()
         return
 
-    # По умолчанию: режим GUI (десктопный Tkinter)
-    try:
-        from src.gui import ShellGUI
-        gui = ShellGUI(vfs_path=args.vfs, script_path=args.script)
-        gui.run()
-    except Exception as e:
-        print(f"\n[Предупреждение] Не удалось запустить десктопный Tkinter GUI: {e}")
-        print("[Инфо] Автоматически запускаем графический Web GUI в вашем браузере...\n")
-        try:
-            from src.web_gui import ShellWebGUI
-            web_gui = ShellWebGUI(vfs_path=args.vfs, script_path=args.script)
-            web_gui.run()
-        except Exception as web_err:
-            print(f"[Ошибка] Не удалось запустить Web GUI: {web_err}", file=sys.stderr)
-            print("[Инфо] Переключение в консольный режим CLI...\n")
-            from src.cli import ShellCLI
-            cli = ShellCLI(vfs_path=args.vfs, script_path=args.script)
-            cli.run()
+    _run_gui_with_fallback(args)
 
 
 if __name__ == "__main__":

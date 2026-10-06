@@ -5,7 +5,6 @@
 
 import getpass
 import json
-import os
 import platform
 import socket
 import subprocess
@@ -32,7 +31,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
   body {
     background: #121214;
     color: #e0e0e0;
-    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, sans-serif;
+    font-family: -apple-system, BlinkMacSystemFont,
+      "Segoe UI", Roboto, sans-serif;
     display: flex;
     justify-content: center;
     align-items: center;
@@ -151,7 +151,8 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     <div class="output-area" id="outputArea"></div>
     <div class="input-row" id="inputRow">
       <span class="prompt-text" id="promptText">{prompt}</span>
-      <input type="text" id="commandInput" autofocus autocomplete="off" spellcheck="false">
+      <input type="text" id="commandInput"
+             autofocus autocomplete="off" spellcheck="false">
     </div>
   </div>
 </div>
@@ -213,7 +214,10 @@ HTML_TEMPLATE = """<!DOCTYPE html>
         }
         if (!data.running) {
           inputRow.style.display = "none";
-          appendText("[Сессия завершена. Окно эмулятора закрыто]", "status-badge");
+          appendText(
+            "[Сессия завершена. Окно эмулятора закрыто]",
+            "status-badge"
+          );
         }
       } catch (err) {
         appendText("Ошибка связи с сервером: " + err, "line-error");
@@ -246,10 +250,84 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 """
 
 
+def _handle_get_request(web_gui, handler):
+    """Обрабатывает GET-запрос главной страницы."""
+    if handler.path == "/" or handler.path.startswith("/?"):
+        html = HTML_TEMPLATE.format(
+            title=web_gui._get_title(),
+            prompt=web_gui.emulator.get_prompt(),
+            initial_json=json.dumps(
+                web_gui.initial_items, ensure_ascii=False
+            ),
+        )
+        content = html.encode("utf-8")
+        handler.send_response(200)
+        handler.send_header("Content-Type", "text/html; charset=utf-8")
+        handler.send_header("Content-Length", str(len(content)))
+        handler.end_headers()
+        handler.wfile.write(content)
+    else:
+        handler.send_response(404)
+        handler.end_headers()
+
+
+def _handle_post_request(web_gui, handler):
+    """Обрабатывает POST-запрос выполнения команды эмулятора."""
+    if handler.path != "/api/execute":
+        handler.send_response(404)
+        handler.end_headers()
+        return
+
+    length = int(handler.headers.get("Content-Length", 0))
+    body = handler.rfile.read(length).decode("utf-8")
+    try:
+        data = json.loads(body)
+        cmd = data.get("command", "")
+    except Exception:
+        cmd = ""
+
+    result = web_gui.emulator.execute(cmd)
+    response_data = {
+        "result": result,
+        "prompt": web_gui.emulator.get_prompt(),
+        "running": web_gui.emulator.running,
+    }
+    content = json.dumps(
+        response_data, ensure_ascii=False
+    ).encode("utf-8")
+    handler.send_response(200)
+    handler.send_header(
+        "Content-Type", "application/json; charset=utf-8"
+    )
+    handler.send_header("Content-Length", str(len(content)))
+    handler.end_headers()
+    handler.wfile.write(content)
+
+
+def _create_request_handler(web_gui):
+    """Создаёт класс обработчика HTTP-запросов для Web GUI."""
+    class RequestHandler(BaseHTTPRequestHandler):
+        def log_message(self, format, *args):
+            return
+
+        def handle_get(self):
+            _handle_get_request(web_gui, self)
+
+        def handle_post(self):
+            _handle_post_request(web_gui, self)
+
+    setattr(RequestHandler, "do_GET", RequestHandler.handle_get)
+    setattr(RequestHandler, "do_POST", RequestHandler.handle_post)
+    return RequestHandler
+
+
 class ShellWebGUI:
     """Веб-интерфейс эмулятора (GUI в браузере)."""
 
-    def __init__(self, vfs_path=None, script_path=None, host="127.0.0.1", port=8080):
+    def __init__(
+        self, vfs_path=None, script_path=None,
+        host="127.0.0.1", port=8080,
+    ):
         self.vfs = VFS()
         self.vfs_path = vfs_path
         self.script_path = script_path
@@ -289,98 +367,68 @@ class ShellWebGUI:
         if self.script_path:
             try:
                 def on_line(text):
-                    cls = "line-cmd" if text.startswith("/") or "$" in text else "line-output"
+                    is_cmd = text.startswith("/") or "$" in text
+                    cls = "line-cmd" if is_cmd else "line-output"
                     self.initial_items.append({"text": text, "cls": cls})
-                self.emulator.run_script(self.script_path, output_callback=on_line)
+                self.emulator.run_script(
+                    self.script_path, output_callback=on_line
+                )
             except FileNotFoundError:
                 self.initial_items.append({
                     "text": f"Скрипт не найден: {self.script_path}",
                     "cls": "line-error"
                 })
 
-    def run(self):
-        """Запускает веб-сервер и открывает браузер."""
-        web_gui = self
-
-        class RequestHandler(BaseHTTPRequestHandler):
-            def log_message(self, format, *args):
-                return
-
-            def do_GET(self):
-                if self.path == "/" or self.path.startswith("/?"):
-                    html = HTML_TEMPLATE.format(
-                        title=web_gui._get_title(),
-                        prompt=web_gui.emulator.get_prompt(),
-                        initial_json=json.dumps(web_gui.initial_items, ensure_ascii=False)
-                    )
-                    content = html.encode("utf-8")
-                    self.send_response(200)
-                    self.send_header("Content-Type", "text/html; charset=utf-8")
-                    self.send_header("Content-Length", str(len(content)))
-                    self.end_headers()
-                    self.wfile.write(content)
-                else:
-                    self.send_response(404)
-                    self.end_headers()
-
-            def do_POST(self):
-                if self.path == "/api/execute":
-                    length = int(self.headers.get("Content-Length", 0))
-                    body = self.rfile.read(length).decode("utf-8")
-                    try:
-                        data = json.loads(body)
-                        cmd = data.get("command", "")
-                    except Exception:
-                        cmd = ""
-
-                    result = web_gui.emulator.execute(cmd)
-                    response_data = {
-                        "result": result,
-                        "prompt": web_gui.emulator.get_prompt(),
-                        "running": web_gui.emulator.running,
-                    }
-                    content = json.dumps(response_data, ensure_ascii=False).encode("utf-8")
-                    self.send_response(200)
-                    self.send_header("Content-Type", "application/json; charset=utf-8")
-                    self.send_header("Content-Length", str(len(content)))
-                    self.end_headers()
-                    self.wfile.write(content)
-                else:
-                    self.send_response(404)
-                    self.end_headers()
-
-        server = None
+    def _create_server(self, handler_cls):
+        """Создаёт и привязывает HTTP-сервер к доступному порту."""
         for p in [8080, 8081, 8088, 5000, 3000, 0]:
             try:
-                server = HTTPServer((self.host, p), RequestHandler)
+                server = HTTPServer((self.host, p), handler_cls)
                 self.port = server.server_port
-                break
+                return server
             except OSError:
                 continue
+        server = HTTPServer((self.host, 0), handler_cls)
+        self.port = server.server_port
+        return server
 
-        if server is None:
-            server = HTTPServer((self.host, 0), RequestHandler)
-            self.port = server.server_port
-
-        url = f"http://localhost:{self.port}"
-        print(f"\n========================================================")
-        print(f"  [Web GUI] Сервер эмулятора успешно запущен!")
-        print(f"  👉 Откройте эту ссылку в браузере (Safari / Chrome):")
+    def _print_banner(self, url):
+        """Выводит информационный баннер запуска Web GUI."""
+        print("\n========================================================")
+        print("  [Web GUI] Сервер эмулятора успешно запущен!")
+        print("  👉 Откройте эту ссылку в браузере (Safari / Chrome):")
         print(f"     {url}")
-        print(f"  (или удерживая Cmd, нажмите на ссылку выше)")
-        print(f"  Для остановки сервера нажмите Ctrl+C в этом терминале.")
-        print(f"========================================================\n", flush=True)
+        print("  (или удерживая Cmd, нажмите на ссылку выше)")
+        print("  Для остановки сервера нажмите Ctrl+C в этом терминале.")
+        print(
+            "========================================================\n",
+            flush=True,
+        )
 
+    def _open_browser(self, url):
+        """Открывает браузер по указанному URL."""
         def try_open():
             try:
                 if platform.system() == "Darwin":
-                    subprocess.Popen(["open", url], stderr=subprocess.DEVNULL, stdout=subprocess.DEVNULL)
+                    subprocess.Popen(
+                        ["open", url],
+                        stderr=subprocess.DEVNULL,
+                        stdout=subprocess.DEVNULL,
+                    )
                 else:
                     webbrowser.open(url)
             except Exception:
                 pass
 
         threading.Timer(0.2, try_open).start()
+
+    def run(self):
+        """Запускает веб-сервер и открывает браузер."""
+        handler_cls = _create_request_handler(self)
+        server = self._create_server(handler_cls)
+        url = f"http://localhost:{self.port}"
+        self._print_banner(url)
+        self._open_browser(url)
 
         try:
             server.serve_forever()

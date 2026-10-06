@@ -39,10 +39,12 @@ class TestVFSNode(unittest.TestCase):
 class TestVFS(unittest.TestCase):
     """Тесты виртуальной файловой системы."""
 
-    def setUp(self):
+    def set_up(self):
         """Подготовка тестовой VFS."""
         self.vfs = VFS()
         self._create_test_structure()
+
+    setUp = set_up
 
     def _create_test_structure(self):
         """Создаёт тестовую структуру файлов."""

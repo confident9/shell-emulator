@@ -9,12 +9,14 @@ from src.vfs import VFS, VFSNode
 class TestEmulator(unittest.TestCase):
     """Тесты ядра эмулятора."""
 
-    def setUp(self):
+    def set_up(self):
         """Подготовка эмулятора для тестов."""
         self.vfs = VFS()
         home = VFSNode("home", is_dir=True)
         self.vfs.root.children["home"] = home
         self.emulator = ShellEmulator(self.vfs)
+
+    setUp = set_up
 
     def test_execute_ls(self):
         """Выполнение команды ls."""

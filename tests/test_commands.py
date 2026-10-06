@@ -13,7 +13,7 @@ from src.vfs import VFS, VFSNode
 class TestCommands(unittest.TestCase):
     """Тесты команд эмулятора."""
 
-    def setUp(self):
+    def set_up(self):
         """Подготовка VFS для тестов."""
         self.vfs = VFS()
         home = VFSNode("home", is_dir=True)
@@ -24,6 +24,8 @@ class TestCommands(unittest.TestCase):
         user.children["doc.txt"] = doc
         home.children["user"] = user
         self.vfs.root.children["home"] = home
+
+    setUp = set_up
 
     def test_ls_root(self):
         """Команда ls в корне."""
