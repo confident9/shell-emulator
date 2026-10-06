@@ -16,8 +16,6 @@ class TestEmulator(unittest.TestCase):
         self.vfs.root.children["home"] = home
         self.emulator = ShellEmulator(self.vfs)
 
-    setUp = set_up
-
     def test_execute_ls(self):
         """Выполнение команды ls."""
         result = self.emulator.execute("ls")
@@ -56,6 +54,9 @@ class TestEmulator(unittest.TestCase):
             'ls "home"'
         )
         self.assertNotIn("Ошибка", result)
+
+
+setattr(TestEmulator, "setUp", TestEmulator.set_up)
 
 
 if __name__ == "__main__":

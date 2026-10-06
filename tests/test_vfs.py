@@ -44,8 +44,6 @@ class TestVFS(unittest.TestCase):
         self.vfs = VFS()
         self._create_test_structure()
 
-    setUp = set_up
-
     def _create_test_structure(self):
         """Создаёт тестовую структуру файлов."""
         home = VFSNode("home", is_dir=True)
@@ -160,6 +158,9 @@ class TestVFS(unittest.TestCase):
         """Разрешение абсолютного пути."""
         resolved = self.vfs.resolve_path("/home/user")
         self.assertEqual(resolved, "/home/user")
+
+
+setattr(TestVFS, "setUp", TestVFS.set_up)
 
 
 if __name__ == "__main__":

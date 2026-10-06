@@ -25,8 +25,6 @@ class TestCommands(unittest.TestCase):
         home.children["user"] = user
         self.vfs.root.children["home"] = home
 
-    setUp = set_up
-
     def test_ls_root(self):
         """Команда ls в корне."""
         result = cmd_ls(self.vfs, [])
@@ -114,5 +112,9 @@ class TestCommands(unittest.TestCase):
         self.assertIn("отсутствует", result)
 
 
+setattr(TestCommands, "setUp", TestCommands.set_up)
+
+
 if __name__ == "__main__":
     unittest.main()
+
