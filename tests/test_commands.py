@@ -111,6 +111,24 @@ class TestCommands(unittest.TestCase):
         result = cmd_touch(self.vfs, [])
         self.assertIn("отсутствует", result)
 
+    def test_cat(self):
+        """Команда cat выводит содержимое файла."""
+        from src.commands import cmd_cat
+        result = cmd_cat(self.vfs, ["home/user/doc.txt"])
+        self.assertEqual(result, "hello")
+
+    def test_cat_nonexistent(self):
+        """cat несуществующего файла — ошибка."""
+        from src.commands import cmd_cat
+        result = cmd_cat(self.vfs, ["nonexistent.txt"])
+        self.assertIn("Нет такого файла", result)
+
+    def test_cat_dir(self):
+        """cat директории — ошибка."""
+        from src.commands import cmd_cat
+        result = cmd_cat(self.vfs, ["home"])
+        self.assertIn("каталог", result)
+
 
 setattr(TestCommands, "setUp", TestCommands.set_up)
 

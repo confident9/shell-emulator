@@ -187,9 +187,32 @@ def cmd_vfs_save(vfs, args):
     return f"VFS сохранена в {path}"
 
 
+def cmd_cat(vfs, args):
+    """Команда cat — вывод содержимого файла.
+
+    Args:
+        vfs: Экземпляр VFS.
+        args: Аргументы [путь_к_файлу].
+
+    Returns:
+        Содержимое файла или сообщение об ошибке.
+    """
+    if not args:
+        return "cat: отсутствует операнд"
+    target = args[0]
+    abs_path = vfs.resolve_path(target)
+    try:
+        return vfs.read_file(abs_path)
+    except FileNotFoundError:
+        return f"cat: {target}: Нет такого файла или каталога"
+    except IsADirectoryError:
+        return f"cat: {target}: Это каталог"
+
+
 COMMANDS = {
     "ls": cmd_ls,
     "cd": cmd_cd,
+    "cat": cmd_cat,
     "exit": cmd_exit,
     "date": cmd_date,
     "cal": cmd_cal,
