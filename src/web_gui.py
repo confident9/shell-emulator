@@ -10,7 +10,11 @@ import socket
 import subprocess
 import threading
 import webbrowser
-from http.server import HTTPServer, BaseHTTPRequestHandler
+try:
+    from http.server import ThreadingHTTPServer as HTTPServer
+except ImportError:
+    from http.server import HTTPServer
+from http.server import BaseHTTPRequestHandler
 
 from src.emulator import ShellEmulator
 from src.vfs import VFS
@@ -266,10 +270,17 @@ def _handle_get_request(web_gui, handler):
         handler.send_response(200)
         handler.send_header("Content-Type", "text/html; charset=utf-8")
         handler.send_header("Content-Length", str(len(content)))
+        handler.send_header("Connection", "close")
         handler.end_headers()
         handler.wfile.write(content)
+        handler.wfile.flush()
+    elif handler.path == "/favicon.ico":
+        handler.send_response(204)
+        handler.send_header("Connection", "close")
+        handler.end_headers()
     else:
         handler.send_response(404)
+        handler.send_header("Connection", "close")
         handler.end_headers()
 
 
@@ -277,6 +288,7 @@ def _handle_post_request(web_gui, handler):
     """Обрабатывает POST-запрос выполнения команды эмулятора."""
     if handler.path != "/api/execute":
         handler.send_response(404)
+        handler.send_header("Connection", "close")
         handler.end_headers()
         return
 
@@ -302,8 +314,10 @@ def _handle_post_request(web_gui, handler):
         "Content-Type", "application/json; charset=utf-8"
     )
     handler.send_header("Content-Length", str(len(content)))
+    handler.send_header("Connection", "close")
     handler.end_headers()
     handler.wfile.write(content)
+    handler.wfile.flush()
 
 
 def _create_request_handler(web_gui):
