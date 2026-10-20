@@ -21,7 +21,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 <head>
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
-<title>{title}</title>
+<title>__TITLE__</title>
 <style>
   * {
     box-sizing: border-box;
@@ -145,12 +145,12 @@ HTML_TEMPLATE = """<!DOCTYPE html>
       <span class="btn btn-min"></span>
       <span class="btn btn-max"></span>
     </div>
-    <div class="title">{title}</div>
+    <div class="title">__TITLE__</div>
   </div>
   <div class="terminal-body" id="termBody">
     <div class="output-area" id="outputArea"></div>
     <div class="input-row" id="inputRow">
-      <span class="prompt-text" id="promptText">{prompt}</span>
+      <span class="prompt-text" id="promptText">__PROMPT__</span>
       <input type="text" id="commandInput"
              autofocus autocomplete="off" spellcheck="false">
     </div>
@@ -180,7 +180,7 @@ HTML_TEMPLATE = """<!DOCTYPE html>
     scrollToBottom();
   }
 
-  const initial = {initial_json};
+  const initial = __INITIAL_JSON__;
   initial.forEach(item => {
     appendText(item.text, item.cls);
   });
@@ -253,12 +253,14 @@ HTML_TEMPLATE = """<!DOCTYPE html>
 def _handle_get_request(web_gui, handler):
     """Обрабатывает GET-запрос главной страницы."""
     if handler.path == "/" or handler.path.startswith("/?"):
-        html = HTML_TEMPLATE.format(
-            title=web_gui._get_title(),
-            prompt=web_gui.emulator.get_prompt(),
-            initial_json=json.dumps(
-                web_gui.initial_items, ensure_ascii=False
-            ),
+        html = (
+            HTML_TEMPLATE
+            .replace("__TITLE__", web_gui._get_title())
+            .replace("__PROMPT__", web_gui.emulator.get_prompt())
+            .replace(
+                "__INITIAL_JSON__",
+                json.dumps(web_gui.initial_items, ensure_ascii=False),
+            )
         )
         content = html.encode("utf-8")
         handler.send_response(200)
@@ -381,7 +383,11 @@ class ShellWebGUI:
 
     def _create_server(self, handler_cls):
         """Создаёт и привязывает HTTP-сервер к доступному порту."""
+        ports = [self.port] if self.port else []
         for p in [8080, 8081, 8088, 5000, 3000, 0]:
+            if p not in ports:
+                ports.append(p)
+        for p in ports:
             try:
                 server = HTTPServer((self.host, p), handler_cls)
                 self.port = server.server_port
@@ -410,15 +416,17 @@ class ShellWebGUI:
         def try_open():
             opened = False
             if platform.system() == "Darwin":
-                try:
-                    subprocess.Popen(
-                        ["open", url],
-                        stderr=subprocess.DEVNULL,
-                        stdout=subprocess.DEVNULL,
-                    )
-                    opened = True
-                except Exception:
-                    pass
+                for open_cmd in ["/usr/bin/open", "open"]:
+                    try:
+                        subprocess.Popen(
+                            [open_cmd, url],
+                            stderr=subprocess.DEVNULL,
+                            stdout=subprocess.DEVNULL,
+                        )
+                        opened = True
+                        break
+                    except Exception:
+                        pass
             if not opened:
                 try:
                     webbrowser.open(url)

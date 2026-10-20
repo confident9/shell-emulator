@@ -218,9 +218,8 @@ class ShellGUI:
         """Активирует окно и форсирует отрисовку Cocoa на macOS."""
         try:
             self.root.update_idletasks()
-            self.root.update()
             self.root.lift()
-            self.input_entry.focus_force()
+            self.input_entry.focus_set()
         except Exception:
             pass
 

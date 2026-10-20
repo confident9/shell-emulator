@@ -68,33 +68,42 @@ def _print_launch_params(args, mode):
 
 
 def _ensure_gui_python():
-    """Если в текущем Python отсутствует Tkinter, перезапускает через доступный Python с Tkinter."""
+    """Перезапускает под современным Python (3.14 с Tk >= 8.6), если текущий устарел."""
     if os.environ.get("_SHELL_EMU_REEXEC"):
         return
+
+    need_upgrade = False
     try:
-        import tkinter  # noqa: F401
-        return
+        import tkinter as tk
+        # Apple Tk 8.5 на macOS Monterey/Ventura/Sonoma/Sequoia не умеет рисовать окна (белый экран)
+        if sys.platform == "darwin" and getattr(tk, "TkVersion", 0) < 8.6:
+            need_upgrade = True
     except ImportError:
-        pass
+        need_upgrade = True
+
+    if not need_upgrade:
+        return
 
     candidates = [
-        "/usr/bin/python3",
-        "/usr/local/bin/python3",
+        "/opt/homebrew/bin/python3.14",
         "/opt/homebrew/bin/python3",
+        "python3.14",
+        "/usr/local/bin/python3.14",
+        "/usr/local/bin/python3",
+        "/usr/bin/python3",
     ]
     for cand in candidates:
-        if cand == sys.executable or not os.path.exists(cand):
+        if cand == sys.executable:
             continue
         try:
             import subprocess
             check = subprocess.run(
-                [cand, "-c", "import tkinter"],
+                [cand, "-c", "import tkinter as tk, sys; sys.exit(0 if tk.TkVersion >= 8.6 else 1)"],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
             if check.returncode == 0:
-                print(f"[Инфо] В текущем Python отсутствует Tkinter.")
-                print(f"[Инфо] Автоматический запуск через {cand} для отображения GUI...\n")
+                print(f"[Инфо] Переключение на {cand} (Tkinter {cand}) для отрисовки GUI...\n")
                 env = os.environ.copy()
                 env["_SHELL_EMU_REEXEC"] = "1"
                 os.execve(cand, [cand] + sys.argv, env)

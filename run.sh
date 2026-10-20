@@ -7,9 +7,9 @@ cd "$SCRIPT_DIR"
 
 # Определение команды python3 с поддержкой Tkinter
 PYTHON=""
-for candidate in python3.14 python3 /opt/homebrew/bin/python3.14 /opt/homebrew/bin/python3 /usr/bin/python3 python; do
+for candidate in /opt/homebrew/bin/python3.14 python3.14 /opt/homebrew/bin/python3 /usr/local/bin/python3.14 /usr/local/bin/python3 python3 python; do
     if command -v "$candidate" &> /dev/null; then
-        if "$candidate" -c "import tkinter" &> /dev/null; then
+        if "$candidate" -c "import tkinter as tk, sys; sys.exit(0 if tk.TkVersion >= 8.6 else 1)" &> /dev/null; then
             PYTHON="$candidate"
             break
         fi
@@ -17,14 +17,12 @@ for candidate in python3.14 python3 /opt/homebrew/bin/python3.14 /opt/homebrew/b
 done
 
 if [ -z "$PYTHON" ]; then
-    if command -v python3 &> /dev/null; then
-        PYTHON="python3"
-    elif command -v python &> /dev/null; then
-        PYTHON="python"
-    else
-        echo "Ошибка: Python 3 не установлен в вашей системе."
-        exit 1
-    fi
+    for candidate in python3.14 python3 /usr/bin/python3 python; do
+        if command -v "$candidate" &> /dev/null; then
+            PYTHON="$candidate"
+            break
+        fi
+    done
 fi
 
 usage() {
