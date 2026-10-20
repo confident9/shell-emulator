@@ -398,7 +398,7 @@ class ShellWebGUI:
         print("  [Web GUI] Сервер эмулятора успешно запущен!")
         print("  👉 Откройте эту ссылку в браузере (Safari / Chrome):")
         print(f"     {url}")
-        print("  (или удерживая Cmd, нажмите на ссылку выше)")
+        print("  (нажмите Cmd + клик на ссылку выше, чтобы открыть)")
         print("  Для остановки сервера нажмите Ctrl+C в этом терминале.")
         print(
             "========================================================\n",
@@ -408,25 +408,30 @@ class ShellWebGUI:
     def _open_browser(self, url):
         """Открывает браузер по указанному URL."""
         def try_open():
-            try:
-                if platform.system() == "Darwin":
+            opened = False
+            if platform.system() == "Darwin":
+                try:
                     subprocess.Popen(
                         ["open", url],
                         stderr=subprocess.DEVNULL,
                         stdout=subprocess.DEVNULL,
                     )
-                else:
+                    opened = True
+                except Exception:
+                    pass
+            if not opened:
+                try:
                     webbrowser.open(url)
-            except Exception:
-                pass
+                except Exception:
+                    pass
 
-        threading.Timer(0.2, try_open).start()
+        threading.Timer(0.3, try_open).start()
 
     def run(self):
         """Запускает веб-сервер и открывает браузер."""
         handler_cls = _create_request_handler(self)
         server = self._create_server(handler_cls)
-        url = f"http://localhost:{self.port}"
+        url = f"http://127.0.0.1:{self.port}"
         self._print_banner(url)
         self._open_browser(url)
 

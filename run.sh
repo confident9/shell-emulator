@@ -5,10 +5,21 @@ set -e
 SCRIPT_DIR="$(dirname "$0")"
 cd "$SCRIPT_DIR"
 
-# Определение команды python3
-PYTHON="python3"
-if ! command -v python3 &> /dev/null; then
-    if command -v python &> /dev/null; then
+# Определение команды python3 с поддержкой Tkinter
+PYTHON=""
+for candidate in python3.14 python3 /opt/homebrew/bin/python3.14 /opt/homebrew/bin/python3 /usr/bin/python3 python; do
+    if command -v "$candidate" &> /dev/null; then
+        if "$candidate" -c "import tkinter" &> /dev/null; then
+            PYTHON="$candidate"
+            break
+        fi
+    fi
+done
+
+if [ -z "$PYTHON" ]; then
+    if command -v python3 &> /dev/null; then
+        PYTHON="python3"
+    elif command -v python &> /dev/null; then
         PYTHON="python"
     else
         echo "Ошибка: Python 3 не установлен в вашей системе."

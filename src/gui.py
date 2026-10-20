@@ -1,17 +1,17 @@
 """GUI-интерфейс эмулятора оболочки UNIX на Tkinter."""
 
-import os
-os.environ["TK_SILENCE_DEPRECATION"] = "1"
-
 import getpass
+import os
 import platform
 import socket
+import subprocess
 import sys
 import tkinter as tk
-from tkinter import scrolledtext
 
 from src.emulator import ShellEmulator
 from src.vfs import VFS
+
+os.environ["TK_SILENCE_DEPRECATION"] = "1"
 
 
 class ShellGUI:
@@ -56,37 +56,52 @@ class ShellGUI:
         """Настраивает главное окно приложения."""
         self.root = tk.Tk()
         self.root.title(self._get_title())
-        self.root.geometry("820x520")
+        self.root.geometry("820x540")
         self.root.minsize(600, 400)
         self.root.configure(bg="#1e1e1e")
 
-        try:
-            self.root.lift()
-            self.root.attributes("-topmost", True)
-            self.root.after_idle(self.root.attributes, "-topmost", False)
-            self.root.focus_force()
-        except Exception:
-            pass
-
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
+
+    def _on_output_key(self, event):
+        """Блокирует ввод в терминал, сохраняя выделение, копирование и скроллинг."""
+        # Разрешаем копирование по Cmd+C (macOS) или Ctrl+C (Linux/Windows)
+        if event.keysym.lower() in ("c", "insert"):
+            if event.state & 0x4 or (sys.platform == "darwin" and event.state & 0x8):
+                return None
+        # Разрешаем навигацию курсора и прокрутку
+        if event.keysym in ("Up", "Down", "Left", "Right", "Prior", "Next", "Home", "End"):
+            return None
+        return "break"
 
     def _setup_output_widget(self):
         """Создаёт текстовую область вывода терминала."""
-        self.output = scrolledtext.ScrolledText(
-            self.root,
+        container = tk.Frame(self.root, bg="#1e1e1e")
+        container.pack(fill=tk.BOTH, expand=True, padx=8, pady=(8, 0))
+
+        self.scrollbar = tk.Scrollbar(container, orient=tk.VERTICAL)
+        self.scrollbar.pack(side=tk.RIGHT, fill=tk.Y)
+
+        self.output = tk.Text(
+            container,
             bg="#1e1e1e",
-            fg="#00ff00",
-            insertbackground="#00ff00",
+            fg="#00ff66",
+            insertbackground="#00ff66",
+            selectbackground="#264f78",
+            selectforeground="#ffffff",
             font=("Courier", 13),
             wrap=tk.WORD,
-            state=tk.DISABLED,
+            bd=0,
+            highlightthickness=0,
+            relief=tk.FLAT,
+            yscrollcommand=self.scrollbar.set,
         )
-        self.output.pack(
-            fill=tk.BOTH, expand=True,
-            padx=8, pady=(8, 0)
-        )
+        self.output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
+        self.scrollbar.config(command=self.output.yview)
+
+        # Блокируем прямое редактирование вывода пользователем
+        self.output.bind("<Key>", self._on_output_key)
         self.output.bind(
-            "<Button-1>", lambda e: self.input_entry.focus_set()
+            "<Button-1>", lambda e: self.root.after(10, self.input_entry.focus_set)
         )
 
     def _setup_input_widgets(self):
@@ -105,11 +120,15 @@ class ShellGUI:
 
         self.input_entry = tk.Entry(
             input_frame,
-            bg="#2d2d2d",
+            bg="#252526",
             fg="#ffffff",
-            insertbackground="#00ff00",
+            insertbackground="#00ff66",
             font=("Courier", 13),
             relief=tk.FLAT,
+            bd=3,
+            highlightthickness=1,
+            highlightbackground="#3c3c3c",
+            highlightcolor="#007acc",
         )
         self.input_entry.pack(side=tk.LEFT, fill=tk.X, expand=True)
 
@@ -147,10 +166,8 @@ class ShellGUI:
 
     def _append_output(self, text):
         """Добавляет текст в область вывода."""
-        self.output.config(state=tk.NORMAL)
         self.output.insert(tk.END, text + "\n")
         self.output.see(tk.END)
-        self.output.config(state=tk.DISABLED)
 
     def _on_enter(self, event):
         """Обработчик нажатия Enter."""
@@ -168,7 +185,7 @@ class ShellGUI:
 
         if not self.emulator.running:
             self._append_output("[Выход из эмулятора]")
-            self.root.after(600, self.root.destroy)
+            self.root.after(400, self.root.destroy)
             return
 
         self._show_prompt()
@@ -197,6 +214,26 @@ class ShellGUI:
         self.emulator.running = False
         self.root.destroy()
 
+    def _activate_window(self):
+        """Активирует окно и форсирует отрисовку Cocoa на macOS."""
+        try:
+            self.root.update_idletasks()
+            self.root.update()
+            self.root.lift()
+            self.input_entry.focus_force()
+        except Exception:
+            pass
+
+        if sys.platform == "darwin":
+            try:
+                subprocess.Popen([
+                    "osascript", "-e",
+                    'tell application "System Events" to set frontmost of first process whose unix id is ' + str(os.getpid()) + ' to true'
+                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+            except Exception:
+                pass
+
     def run(self):
         """Запускает главный цикл GUI."""
+        self._activate_window()
         self.root.mainloop()

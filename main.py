@@ -67,8 +67,44 @@ def _print_launch_params(args, mode):
     print("===========================================")
 
 
+def _ensure_gui_python():
+    """Если в текущем Python отсутствует Tkinter, перезапускает через доступный Python с Tkinter."""
+    if os.environ.get("_SHELL_EMU_REEXEC"):
+        return
+    try:
+        import tkinter  # noqa: F401
+        return
+    except ImportError:
+        pass
+
+    candidates = [
+        "/usr/bin/python3",
+        "/usr/local/bin/python3",
+        "/opt/homebrew/bin/python3",
+    ]
+    for cand in candidates:
+        if cand == sys.executable or not os.path.exists(cand):
+            continue
+        try:
+            import subprocess
+            check = subprocess.run(
+                [cand, "-c", "import tkinter"],
+                stdout=subprocess.DEVNULL,
+                stderr=subprocess.DEVNULL,
+            )
+            if check.returncode == 0:
+                print(f"[Инфо] В текущем Python отсутствует Tkinter.")
+                print(f"[Инфо] Автоматический запуск через {cand} для отображения GUI...\n")
+                env = os.environ.copy()
+                env["_SHELL_EMU_REEXEC"] = "1"
+                os.execve(cand, [cand] + sys.argv, env)
+        except Exception:
+            continue
+
+
 def _run_gui_with_fallback(args):
     """Запускает GUI Tkinter с резервным переключением на Web GUI и CLI."""
+    _ensure_gui_python()
     try:
         from src.gui import ShellGUI
         gui = ShellGUI(vfs_path=args.vfs, script_path=args.script)
