@@ -13,6 +13,13 @@ from src.vfs import VFS
 
 os.environ["TK_SILENCE_DEPRECATION"] = "1"
 
+STATE_CONTROL_MASK = 0x4
+STATE_COMMAND_MASK = 0x8
+NAV_KEYS = (
+    "Up", "Down", "Left", "Right",
+    "Prior", "Next", "Home", "End",
+)
+
 
 class ShellGUI:
     """Графический интерфейс эмулятора оболочки на Tkinter."""
@@ -37,7 +44,9 @@ class ShellGUI:
             return
         path = self.vfs_path
         if not os.path.exists(path):
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
             alt = os.path.join(base_dir, path)
             if os.path.exists(alt):
                 path = alt
@@ -69,15 +78,22 @@ class ShellGUI:
         self.root.protocol("WM_DELETE_WINDOW", self._on_close)
 
     def _on_output_key(self, event):
-        """Блокирует ввод в терминал, сохраняя выделение, копирование и скроллинг."""
-        # Разрешаем копирование по Cmd+C (macOS) или Ctrl+C (Linux/Windows)
-        if event.keysym.lower() in ("c", "insert"):
-            if event.state & 0x4 or (sys.platform == "darwin" and event.state & 0x8):
-                return None
-        # Разрешаем навигацию курсора и прокрутку
-        if event.keysym in ("Up", "Down", "Left", "Right", "Prior", "Next", "Home", "End"):
+        """Блокирует редактирование, сохраняя копирование и скроллинг."""
+        is_copy = event.keysym.lower() in ("c", "insert")
+        is_ctrl = bool(event.state & STATE_CONTROL_MASK)
+        is_cmd = (
+            sys.platform == "darwin"
+            and bool(event.state & STATE_COMMAND_MASK)
+        )
+        if is_copy and (is_ctrl or is_cmd):
+            return None
+        if event.keysym in NAV_KEYS:
             return None
         return "break"
+
+    def _on_output_click(self, _event):
+        """Переводит фокус в строку ввода команд при клике на вывод."""
+        self.root.after(10, self.input_entry.focus_set)
 
     def _setup_output_widget(self):
         """Создаёт текстовую область вывода терминала."""
@@ -104,11 +120,8 @@ class ShellGUI:
         self.output.pack(side=tk.LEFT, fill=tk.BOTH, expand=True)
         self.scrollbar.config(command=self.output.yview)
 
-        # Блокируем прямое редактирование вывода пользователем
         self.output.bind("<Key>", self._on_output_key)
-        self.output.bind(
-            "<Button-1>", lambda e: self.root.after(10, self.input_entry.focus_set)
-        )
+        self.output.bind("<Button-1>", self._on_output_click)
 
     def _setup_input_widgets(self):
         """Создаёт панель ввода команд с промптом."""
@@ -231,10 +244,17 @@ class ShellGUI:
 
         if sys.platform == "darwin":
             try:
-                subprocess.Popen([
-                    "osascript", "-e",
-                    'tell application "System Events" to set frontmost of first process whose unix id is ' + str(os.getpid()) + ' to true'
-                ], stdout=subprocess.DEVNULL, stderr=subprocess.DEVNULL)
+                pid = os.getpid()
+                script = (
+                    f'tell application "System Events" to '
+                    f'set frontmost of first process whose unix id is '
+                    f'{pid} to true'
+                )
+                subprocess.Popen(
+                    ["osascript", "-e", script],
+                    stdout=subprocess.DEVNULL,
+                    stderr=subprocess.DEVNULL,
+                )
             except Exception:
                 pass
 

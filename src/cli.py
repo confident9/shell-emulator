@@ -25,7 +25,9 @@ class ShellCLI:
             return
         path = self.vfs_path
         if not os.path.exists(path):
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
             alt = os.path.join(base_dir, path)
             if os.path.exists(alt):
                 path = alt

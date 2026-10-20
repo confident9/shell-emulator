@@ -11,10 +11,7 @@ import socket
 import subprocess
 import threading
 import webbrowser
-try:
-    from http.server import ThreadingHTTPServer as HTTPServer
-except ImportError:
-    from http.server import HTTPServer
+import http.server
 from http.server import BaseHTTPRequestHandler
 
 from src.emulator import ShellEmulator
@@ -361,7 +358,9 @@ class ShellWebGUI:
             return
         path = self.vfs_path
         if not os.path.exists(path):
-            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            base_dir = os.path.dirname(
+                os.path.dirname(os.path.abspath(__file__))
+            )
             alt = os.path.join(base_dir, path)
             if os.path.exists(alt):
                 path = alt
@@ -408,14 +407,17 @@ class ShellWebGUI:
         for p in [8080, 8081, 8088, 5000, 3000, 0]:
             if p not in ports:
                 ports.append(p)
+        server_cls = getattr(
+            http.server, "ThreadingHTTPServer", http.server.HTTPServer
+        )
         for p in ports:
             try:
-                server = HTTPServer((self.host, p), handler_cls)
+                server = server_cls((self.host, p), handler_cls)
                 self.port = server.server_port
                 return server
             except OSError:
                 continue
-        server = HTTPServer((self.host, 0), handler_cls)
+        server = server_cls((self.host, 0), handler_cls)
         self.port = server.server_port
         return server
 

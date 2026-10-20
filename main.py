@@ -10,9 +10,15 @@
 
 import argparse
 import os
+import subprocess
 import sys
 
 os.environ["TK_SILENCE_DEPRECATION"] = "1"
+
+MIN_TK_VERSION = 8.6
+TK_CHECK_CODE = (
+    "import tkinter as tk, sys; sys.exit(0 if tk.TkVersion >= 8.6 else 1)"
+)
 
 
 def parse_args():
@@ -67,23 +73,19 @@ def _print_launch_params(args, mode):
     print("===========================================")
 
 
-def _ensure_gui_python():
-    """Перезапускает под современным Python (3.14 с Tk >= 8.6), если текущий устарел."""
-    if os.environ.get("_SHELL_EMU_REEXEC"):
-        return
-
-    need_upgrade = False
+def _is_tkinter_outdated():
+    """Проверяет, устарел ли Tkinter (на macOS Tk 8.5 не отрисовывает окна)."""
     try:
         import tkinter as tk
-        # Apple Tk 8.5 на macOS Monterey/Ventura/Sonoma/Sequoia не умеет рисовать окна (белый экран)
-        if sys.platform == "darwin" and getattr(tk, "TkVersion", 0) < 8.6:
-            need_upgrade = True
+        if sys.platform == "darwin":
+            return getattr(tk, "TkVersion", 0) < MIN_TK_VERSION
+        return False
     except ImportError:
-        need_upgrade = True
+        return True
 
-    if not need_upgrade:
-        return
 
+def _find_modern_python():
+    """Находит в системе Python с поддержкой современной версии Tkinter."""
     candidates = [
         "/opt/homebrew/bin/python3.14",
         "/opt/homebrew/bin/python3",
@@ -96,19 +98,30 @@ def _ensure_gui_python():
         if cand == sys.executable:
             continue
         try:
-            import subprocess
             check = subprocess.run(
-                [cand, "-c", "import tkinter as tk, sys; sys.exit(0 if tk.TkVersion >= 8.6 else 1)"],
+                [cand, "-c", TK_CHECK_CODE],
                 stdout=subprocess.DEVNULL,
                 stderr=subprocess.DEVNULL,
             )
             if check.returncode == 0:
-                print(f"[Инфо] Переключение на {cand} (Tkinter {cand}) для отрисовки GUI...\n")
-                env = os.environ.copy()
-                env["_SHELL_EMU_REEXEC"] = "1"
-                os.execve(cand, [cand] + sys.argv, env)
+                return cand
         except Exception:
             continue
+    return None
+
+
+def _ensure_gui_python():
+    """Перезапускает процесс под Python с поддержкой Tkinter при нужде."""
+    if os.environ.get("_SHELL_EMU_REEXEC"):
+        return
+    if not _is_tkinter_outdated():
+        return
+    cand = _find_modern_python()
+    if cand:
+        print(f"[Инфо] Переключение на {cand} для отрисовки GUI...\n")
+        env = os.environ.copy()
+        env["_SHELL_EMU_REEXEC"] = "1"
+        os.execve(cand, [cand] + sys.argv, env)
 
 
 def _run_gui_with_fallback(args):
