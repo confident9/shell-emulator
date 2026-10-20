@@ -1,6 +1,7 @@
 """Консольный REPL-интерфейс эмулятора оболочки."""
 
 import getpass
+import os
 import socket
 import sys
 
@@ -22,10 +23,16 @@ class ShellCLI:
         """Загружает VFS из JSON или директории."""
         if self.vfs_path is None:
             return
-        if self.vfs_path.endswith(".json"):
-            self.vfs.load_from_json(self.vfs_path)
+        path = self.vfs_path
+        if not os.path.exists(path):
+            base_dir = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+            alt = os.path.join(base_dir, path)
+            if os.path.exists(alt):
+                path = alt
+        if path.endswith(".json"):
+            self.vfs.load_from_json(path)
         else:
-            self.vfs.load_from_directory(self.vfs_path)
+            self.vfs.load_from_directory(path)
 
     def _get_title(self):
         """Формирует заголовок оболочки."""
