@@ -65,4 +65,8 @@ if [ "$1" = "help" ] || [ "$1" = "--help" ] || [ "$1" = "-h" ]; then
     exit 0
 fi
 
-$PYTHON main.py "$@"
+if [ $# -eq 0 ]; then
+    $PYTHON main.py --vfs vfs_samples/full.json
+else
+    $PYTHON main.py "$@"
+fi
